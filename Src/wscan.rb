@@ -305,7 +305,7 @@ end
 	$alog=LogRoutine::Log.new(OK, "DEBG")										# open log file
 	$gcfd= GlobConfData.new														# create browser interface
 	setUpGlobalConf()
-	ret='OK'
+	ret=OK
 	$gcfd.testRepeat.times do |iTest|											# for each test (when in standalone mode
 		servStartTime= Time.now.to_i											# time stamp in seconds
 		$gcfd.nServ.times do |iServ|											# for each service
@@ -317,7 +317,7 @@ end
 			$pfd.testNum=iTest													# keep progr test number
 			execService(iServ, iTest)
 			ret= calcServiceRes(iServ, iTest)
-			if(ret=="OK")
+			if(ret==OK)
 				ret= $pfd.retState
 			end
 		end
