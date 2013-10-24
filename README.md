@@ -39,13 +39,14 @@ Installation
 ============
 You have to download & install Java & Jmeter:
  http://jmeter.apache.org/usermanual/get-started.html#install
-You have to download:
+You have to download/install:
  Ruby 1.9.3
 You have to install the following GEMs:
  childprocess
  ffi
  headless
  json
+ mail
  multi_json
  open4
  os
