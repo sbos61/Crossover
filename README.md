@@ -24,13 +24,14 @@ You have to specify log path, and the log level.
 
 Output
 =====
-Output can be produced in several way. 
+several Output types can be produced. 
 Each output can be enabled independently of each other:
 - you can send results to NSCA server for each test (Nagios environment)
 - you can print a single line results on screen for each test 
-- HTML table output is under development
+- you can have an HTML table with the result of all tests
+- you can have an email bearing all the alarms within each test run
 - screen shots can be taken where errors are detected.
-- .jtl files are left behind for each plan and tehy are overwritten when executing the next test.
+- .jtl files are left behind for each plan and they are overwritten when executing the next test.
   When running in "standAlone" mode (see below) a "plan name"-tot.jtl file is produced, holding all the results.
   This file is never overwritten (always appended).
 
