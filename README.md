@@ -65,18 +65,21 @@ How it works
 At the beginning of the test, the config file is read, then is starts executing the plans one at a time.
 
 You can select 3 different modes (aka runMode):
+
 "Plugin"		This is used to be launched by Nagios as a local probe in active way.
 				Data results are printed on the screen, as required for Nagios plugins.
 				Only the first one plan is executed.
+				
 "passive"		passive Nagios probe.
 				This is used to launch the test periodically (usually via crontab) and send result to Nagios via NSCA.
 				All tests are executed.
+				
 "standAlone"	This is used to launch manually a cycling monitor. All tests are executed.
 				You must specify:
 					pollTime="2"		# minutes between polling
 					testDuration="8"	# test total duration (minutes)
 				This can be useful to launch a monitoring campaign, without having a monitor system involved.
-  
+				
 For each plan a related .jtl file is produced.
 This is native behaviour for Jmeter, while it is purposely written for Watir webdriver.
 At the end of execution, the .jtl file is parsed for errors and checked against time thresholds.
@@ -96,7 +99,7 @@ If you do not select a profile, a temporary profile is created and it is destroy
 How to launch it
 ================
 (in windows)
-wscan.rb -p .\Cfg\wscan_2-0complete.conf
+wscan.rb -p .\Cfg\myfile.conf
 
 At this time the only other option is:
   -x enable headless mode (Linux only)
