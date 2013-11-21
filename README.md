@@ -24,12 +24,12 @@ You have to specify log path, and the log level.
 
 Output
 =====
-several Output types can be produced. 
+Output can be produced in several way. 
 Each output can be enabled independently of each other:
 - you can send results to NSCA server for each test (Nagios environment)
+- you can write results to .cmd file (useful in Nagios environment, in passive probe configuration)
 - you can print a single line results on screen for each test 
-- you can have an HTML table with the result of all tests
-- you can have an email bearing all the alarms within each test run
+- HTML table (one line per each service)
 - screen shots can be taken where errors are detected.
 - .jtl files are left behind for each plan and they are overwritten when executing the next test.
   When running in "standAlone" mode (see below) a "plan name"-tot.jtl file is produced, holding all the results.
@@ -38,48 +38,31 @@ Each output can be enabled independently of each other:
 Installation
 ============
 You have to download & install Java & Jmeter:
- http://jmeter.apache.org/usermanual/get-started.html#install
-You have to download/install:
- Ruby 1.9.3
-You have to install the following GEMs:
- childprocess
- ffi
- headless
- json
- mail
- multi_json
- open4
- os
- rubyzip
- send_nsca
- selenium-webdriver
- watir-webdriver
- watir-webdriver-performance
- websocket
- wopen3
- xml-simple
+- http://jmeter.apache.org/usermanual/get-started.html#install
+You have to download:
+- Ruby 1.9.3
+You have to install the GEMs 
+- bundler
 
+yOU have to copy gemfile
  
 How it works
 ============
 At the beginning of the test, the config file is read, then is starts executing the plans one at a time.
 
 You can select 3 different modes (aka runMode):
-
-"Plugin"		This is used to be launched by Nagios as a local probe in active way.
++ "Plugin"		This is used to be launched by Nagios as a local probe in active way.
 				Data results are printed on the screen, as required for Nagios plugins.
 				Only the first one plan is executed.
-				
-"passive"		passive Nagios probe.
++ "passive"		passive Nagios probe.
 				This is used to launch the test periodically (usually via crontab) and send result to Nagios via NSCA.
 				All tests are executed.
-				
-"standAlone"	This is used to launch manually a cycling monitor. All tests are executed.
++ "standAlone"	This is used to launch manually a cycling monitor. All tests are executed.
 				You must specify:
-					pollTime="2"		# minutes between polling
-					testDuration="8"	# test total duration (minutes)
+				++	pollTime="2"		# minutes between polling
+				++	testDuration="8"	# test total duration (minutes)
 				This can be useful to launch a monitoring campaign, without having a monitor system involved.
-				
+  
 For each plan a related .jtl file is produced.
 This is native behaviour for Jmeter, while it is purposely written for Watir webdriver.
 At the end of execution, the .jtl file is parsed for errors and checked against time thresholds.
@@ -99,7 +82,7 @@ If you do not select a profile, a temporary profile is created and it is destroy
 How to launch it
 ================
 (in windows)
-wscan.rb -p .\Cfg\myfile.conf
+wscan.rb -p .\Cfg\wscan_2-0complete.conf
 
 At this time the only other option is:
   -x enable headless mode (Linux only)

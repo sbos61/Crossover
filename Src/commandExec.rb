@@ -22,7 +22,7 @@ jHome=$gcfd.javaHome
 jmHome=$gcfd.jmeterHome
 
 
-FileUtils.cd($gcfd.servConfPath)													# change working directory to keep command short
+FileUtils.cd($gcfd.servConfPath)												# change working directory to keep command short
 prop= "./jmeter.properties"
 
 index= jmxScript.rindex('.')													# strip off extension
@@ -31,8 +31,7 @@ if (index)
 end
 plan= "./"+jmxScript															# proper extension in place
 
-											# calculate jtl file full name
-
+																				# calculate jtl file full na
 command= '"'+jHome+'"'+" -jar "+'"'+jmHome+"bin/ApacheJMeter.jar"+'"'+" -n -p "+prop+" -d "+'"'+jmHome+'"'+" -t "+plan+" -l "+jtlname
 
 if((command.length>255) &&($gcfd.opSyst=="Windows"))
@@ -57,8 +56,8 @@ Open3.popen3(command) do |stdin, stdout, stderr, wait_thr| 						# use stdin exa
 		src= $gcfd.servConfPath+"jmeter.log"
 		dst= $gcfd.logPath+"jmeter.log"
 		FileUtils.mv(src, dst, :force => true)
-	rescue Timeout::Error
-		$alog.lwrite("Error executing Jmeter: "+ $!.to_s, "ERR_")
+	rescue
+		$alog.lwrite("Error executing Jmeter: "+ command+". "+ $!.to_s, "ERR_")
 		return UNKNOWN
 	end
 	$alog.lwrite("Jmeter script: "+plan+" executed ", "DEBG")

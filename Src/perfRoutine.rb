@@ -11,9 +11,10 @@ FILEMAXLEN	=10240
 
 class PerfData
 
-def initialize  (fileName, testMode, runMode, testType)							# full pathname filename
+def initialize(fileName, testMode, runMode, testType)							# full pathname filename
 	@jtlfile=""
 	@jtlTotal=""
+	@jtlLines=[]
 	@tStarted= false
 	@dataSaved= true
 	@startTime= 0
@@ -35,7 +36,7 @@ def initialize  (fileName, testMode, runMode, testType)							# full pathname fi
 	@retState= OK																# string with status
 																				# integer with return code
 	index =  fileName.rindex('.')												# take log file full name
-	if (index)
+	if(index)
 		jtlname= fileName[0 , index]											# strip off extension
 	else
 		jtlname= fileName														# if there is no extension, take the full name
@@ -46,7 +47,7 @@ def initialize  (fileName, testMode, runMode, testType)							# full pathname fi
 	if !(testMode)																# if not in test mode
 		@fh = File.new( @jtlfile, "w")											# if exists, it will be overwritten
 		@fh.puts @header
-		if(runMode==STANDALONE)													# ONLY in STANDALONE mode,
+		if((runMode==STANDALONE)||(runMode==CUCUMBER))							# ONLY in STANDALONE mode,
 			if File.exists?( @jtlTotal)
 				@fhTot = File.new( @jtlTotal, "a")								# append at the end
 				@fhTot.close
@@ -111,24 +112,24 @@ end
 #
 # Check against each TX thresholds
 #
-def checkThreshold (pfData, stxd, nameTX, durTX)
+def checkThreshold(pfData, stxd, nameTX, durTX)
 
-	if (stxd.nTX> 0)															# check theresholds
+	if(stxd.nTX> 0)															# check theresholds
 		(0..stxd.nTX-1).each do |i|
 			nmTX= stxd.GetTxName(i)
 			cleanNmTX= nmTX.tr(' =%?*','_')										# clean up string
-			if (nameTX.include? nmTX)
-				if (durTX> stxd.GetCritTO(i))
+			if(nameTX.include? nmTX)
+				if(durTX> stxd.GetCritTO(i))
 					m= 'TXTO_ERR on "'+ nmTX+'": '+ sprintf("%.3f",durTX)+"s. TOcrit "+stxd.GetCritTO(i).to_s
 					$alog.lwrite(m, "ERR_")
-					if (@retState<CRITICAL)
+					if(@retState<CRITICAL)
 						@retState= CRITICAL
 						@applResMsg= m
 					end
-				elsif (durTX> stxd.GetWarnTO(i))
+				elsif(durTX> stxd.GetWarnTO(i))
 					m= 'TXTO_WRN on "'+ nmTX+'": '+ sprintf("%.3f",durTX)+"s. TOwarn "+stxd.GetWarnTO(i).to_s
 					$alog.lwrite(m, "WARN")
-					if (@retState<WARNING)
+					if(@retState<WARNING)
 						@retState= WARNING
 						@applResMsg= m
 					end
@@ -183,14 +184,14 @@ def CalcPerfData( iServ, warnTO, critTO)
 		if !(httpTX.include? "OK")												# error @http level
 			m= "HTTP_ERR on "+ lblTX+". "+ timeTX.to_s
 			$alog.lwrite(m, "ERR_")
-			if (@retState <CRITICAL)											# in case of multiple errors, retunr the first
+			if(@retState <CRITICAL)											# in case of multiple errors, retunr the first
 				@applResMsg= m
 				@retState= CRITICAL
 			end
-		elsif (!applTX.include? "true")											# error @applications level
+		elsif(!applTX.include? "true")											# error @applications level
 			m= "APPL_ERR on "+ lblTX+". "+ timeTX.to_s
 			$alog.lwrite(m, "ERR_")
-			if (@retState <CRITICAL)
+			if(@retState <CRITICAL)
 				@applResMsg= m
 				@retState= CRITICAL
 			end
@@ -206,33 +207,33 @@ def CalcPerfData( iServ, warnTO, critTO)
 #   4- global critical TO
 
 
-	if (totTime<=0)																# start evaluation fo total time against global thresholds
+	if(totTime<=0)																# start evaluation fo total time against global thresholds
 		@retState = UNKNOWN
 		@applResMsg= "UNKN_ERR Invalid total time"
 		$alog.lwrite(@applResMsg, "ERR_")
 	end
-	if (@retState == UNKNOWN)													# final processing (global thrsh. TO etc)
-		if (@applResMsg=="")
+	if(@retState == UNKNOWN)													# final processing (global thrsh. TO etc)
+		if(@applResMsg=="")
 			@applResMsg= "UNKN_ERR Time: "+sprintf("%.3f",totTime)+"s"
 		end
 		$alog.lwrite(@applResMsg, "ERR_")
-	elsif (@retState == CRITICAL)
+	elsif(@retState == CRITICAL)
 #		@applResMsg+= " Time: "+sprintf("%.3f",totTime)+"s "
 		$alog.lwrite(@applResMsg, "ERR_")
-	elsif (@retState == WARNING)
-		if (totTime > critTO)
+	elsif(@retState == WARNING)
+		if(totTime > critTO)
 			@retState = CRITICAL
-			@applResMsg= "TIME_ERR Time "+sprintf("%.3f",totTime)+" s (critical "+sprintf("%.3f",critTO)+" s)"
+			@applResMsg= "TIME_ERR Time "+sprintf("%.3f",totTime)+" s(critical "+sprintf("%.3f",critTO)+" s)"
 			$alog.lwrite(@applResMsg, "ERR_")
 		else
 			$alog.lwrite(@applResMsg, "WARN")
 		end
 	else																		# if status is still OK
-		if (totTime > critTO)
+		if(totTime > critTO)
 			@retState = CRITICAL
 			@applResMsg= "TIME_ERR Time "+sprintf("%.3f",totTime)+" s (critical "+sprintf("%.3f",critTO)+" s)"
 			$alog.lwrite(@applResMsg, "ERR_")
-		elsif (totTime > warnTO)
+		elsif(totTime > warnTO)
 			@retState = WARNING
 			@applResMsg= "TIME_WRN Time "+sprintf("%.3f",totTime)+" s (warning "+sprintf("%.3f",warnTO)+" s)"
 			$alog.lwrite(@applResMsg, "WARN")
@@ -252,20 +253,20 @@ def CalcPerfData( iServ, warnTO, critTO)
 end
 
 ################################################################################
-def tstart (url)																# sub start misuring
-
-	if (@tStarted == true)
-		$alog.lwrite(("Timer start+stop"), "DEBG")
-		tstop
+def tstart(url)																	# Start misuring time.
+																				# If there is something to save, do it
+	if(@tStarted == true)
+		$alog.lwrite(("Timer double started"), "DEBG")
+		self.tstop( url)
 	end
 
-	if (@dataSaved == false)
+	if(@dataSaved == false)
 		savePerfLine															# write perfomance data line to file
 	end
 
-	@startUrl= url
 	@applRes= 'true'
 	@httpRes= 'OK'																# maps to 200 response
+	@httpCode= '200'
 
 	@dataSaved = true
 	@stopTime= 0
@@ -277,52 +278,53 @@ def tstart (url)																# sub start misuring
 end
 
 ################################################################################
-def tstop()																		# stop timer, save to file
+def tstop(url)																	# stop timer, save to file
 
-	if (@tStarted == false)
-		$alog.lwrite( "Timer stopped but not started: URL "+ $browser.url, "INFO")
+	if(@tStarted == false)
+		$alog.lwrite( "Timer stopped but not started: URL "+ url, "DEBG")
 	else
+		$alog.lwrite("Appl. Timer stopped on URL: "+ url+". ", "DEBG")
 		@stopTime= Time.now.to_f* 1000
-		@dur= (@stopTime- @startTime).to_i
+		@dur=( @stopTime- @startTime).to_i
 		@tStarted= false
 		@dataSaved = false
 	end																			# check for HTTP errors
 end
 
+
 ################################################################################
-def applErr (flag, msg)															# true if NO error detected
+#
+# generic error management from browser
+# some attempt is done to detect the error type
+#
+def applRes(flag, msg, url)															# true if NO error detected
 
-	if flag== 'false'
-		@applRes= 'false'
-		@applResMsg= msg
-		$alog.lwrite(msg, "ERR_")
-
-	else
+	if flag
 		$alog.lwrite(msg, "DEBG")
+	else
+		@applRes= 'false'
+		@applResMsg= msg														# check if this is due to HTTP errors
+		$alog.lwrite(msg, "ERR_")
 	end
 
-	if (@tStarted == true)
-		self.tstop
-		$alog.lwrite("Appl. Timer stop: "+ $browser.url+". Flag: "+flag.to_s, "DEBG")
-		savePerfLine															# write perfomance data line to file
+	if(@tStarted)
+		self.tstop(url)
 	end
 end
 
-################################################################################
-def httpErr (msg)																# OK true if NO error detected
-	@httpRes= (msg =='OK' ? @httpRes : msg)										# HTTP msg else
-end
+	def applErr(flag, msg, url)															# true if NO error detected
+	end
 
-################################################################################
-def perfClose (service, logmode, warnTO, critTO)
+																						   ################################################################################
+def perfClose(service, lastUrl)
 
 	if(@fh!=nil)
-		if (@fh)																	# non opened in test mode
-			if (@tStarted == true)
-				@tstop
+		if(@fh)																	# non opened in test mode
+			if(@tStarted == true)
+				self.tstop( lastUrl)
 			end
-			if (@dataSaved == false)
-				savePerfLine														# write perfomance data line to file
+			if(@dataSaved == false)
+				savePerfLine													# write perfomance data line to file
 			end
 			@fh.close
 		end

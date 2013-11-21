@@ -15,40 +15,12 @@
 #			- executes multiple service checks on multiple host in sequence
 #			- executes multiple Selenium IDE tables per service.
 #
-#	parameters:
-#		-p --config file:
-#					Include the ABSOLUTE Path (file .conf)
-#		-x --xvfb: run head less mode
-
-
-################################################################################
-# status constant
 #
-# add source location
 $LOAD_PATH.unshift(File.dirname(__FILE__))
 #
+require 'definitions.rb'
 
-OK			=0
-WARNING		=1
-CRITICAL	=2
-UNKNOWN		=3
-def errText(e)
-	errT= ["OK", "WARNING", "CRITICAL", "UNKNOWN"]  
-	return errT[e]
-end
-
-PLUGIN		=0
-PASSIVE		=1
-STANDALONE	=2
-
-SELENIUM	=0
-JMETER		=1
-EXTERNAL	=2
-
-require 'watir-webdriver'														#open a browser WD mode
-require 'watir-webdriver-performance'
 require "rexml/document"
-
 include REXML																	# so that we don't have to prefix everything with REXML::...
 
 require 'optparse'
@@ -57,21 +29,16 @@ require 'headless'
 require 'OS' 
 require 'open3'
 require 'timeout'
+require 'net/smtp'
 
 require 'logRoutine.rb'
 require 'perfRoutine.rb'
-require 'wdCommands.rb'
+require 'selenCommands.rb'
+require 'browserCommands.rb'
 require 'sendServRes.rb'														# either on file or via NSCA
 require 'confRoutine.rb'
 require 'commandExec.rb'
-
-
-#def helpLog( msg)
-#	fname= '/etc/nagios/logs/google.log'
-#	fh = File.new( fname, "a+")
-#	fh.puts Time.now.strftime("%Y-%m-%d %H.%M.%S")+ '  '+ msg
-#	fh.close
-#end
+require 'sendServRes.rb'
 
 
 ################################################################################
@@ -106,147 +73,19 @@ def GetCommandLineParms()
 	optparse.parse!																# Parse the command-line.
 	fname= options[:conffile]
 	index = fname.rindex('.')
-	if (index) then
+	if(index) then
 		fname= fname[0 , index]
 	end
 
-	$gcfd.confGlobFile= fname+ '.conf'
-	$gcfd.hlmode= options[:hlmode]
+	cmdLineparms= Array.new
+	cmdLineparms = [fname+ '.conf', options[:hlmode]]
+#	$gcfd.confGlobFile= fname+ '.conf'
+#	$gcfd.hlmode= options[:hlmode]
 
-
-end
-
-################################################################################
-#
-#  Configuration management
-#   parses command line options
-#   open & parses .conf file
-#   open .log file
-#	open Browser
-#
-def setUpGlobalConf ()
-	GetCommandLineParms()														# get command line info
-	ParseConfFile( $gcfd.confGlobFile)
-
-	$alog.lopen($gcfd.logFile, $gcfd.logMode)
-	$alog.lwrite("Config data read from "+$gcfd.confGlobFile, "INFO")
-
-	begin
-		if ($gcfd.hlmode== true)
-			$gcfd.headless = Headless.new(:dimensions => "1024x768x16")
-			$gcfd.headless.start
-		end
-	rescue
-		msg= "Cannot activate headless mode. "+ $!.to_s
-		$alog.lwrite(msg, "ERR_")
-		$alog.lclose
-		p msg																	# return message to Nagios
-		exit!(UNKNOWN)
-	end
-
-	begin
-		if !($gcfd.testMode== true)												# not in test mode
-			if $gcfd.brwsrType[0..1].downcase =="ie"
-				$browser= Watir::Browser.new:ie
-				$alog.lwrite("Explorer opened ", "INFO")
-			elsif $gcfd.brwsrType[0..1].downcase =="ch"
-				$browser= Watir::Browser.new:chrome
-				$alog.lwrite("Chrome opened ", "INFO")
-			else
-				pf= $gcfd.brwsrProfile
-				if pf ==""
-					$browser= Watir::Browser.new:firefox						# default is Firefox
-				else
-					$browser= Watir::Browser.new:firefox, :profile => pf		# Firefox with profile
-				end
-				$alog.lwrite("Firefox opened with profile /"+pf+"/", "INFO")
-			end
-			$browser.driver.manage.timeouts.page_load = 60						# increase page timeout
-		end
-
-		$gcfd.res= "OK"
-
-	rescue
-		msg= "Cannot open browser. "+ $!.to_s
-		$alog.lwrite(msg, "ERR_")
-		if ($gcfd.hlmode== true)
-			$gcfd.headless.destroy
-		end
-		$alog.lclose
-		p msg																	# return message to Nagios
-		exit!(UNKNOWN)
-
-	end
+	return cmdLineparms
 
 end
 
-################################################################################
-#
-#  Configuration management
-#   clean up and close
-#
-def closeGlobConf ()
-
-	$browser.close
-	if ($gcfd.hlmode== true)
-		$gcfd.headless.destroy
-	end
-
-	msgLog ="Durata scan: "+ sprintf("%.3f",$gcfd.duration)+ "s"
-	$alog.lwrite(msgLog, "INFO")
-end
-
-
-################################################################################
-#
-#  Operation table management
-#	receives the file name "fconfig" parameter
-#	load table data
-#
-################################################################################
-#
-
-def processOpTable ( optable)
-
-	begin
-		doc = Document.new File.new( optable, "r")
-
-	rescue
-		$alog.lwrite("CANNot open table: "+optable, "ERR_")
-		return CRITICAL
-	end
-	$alog.lwrite("Table "+optable+" opened", "INFO")
-
-
-#   root = doc.root
-	title= ""
-	urlBase = doc.elements["*/head/link"  ].attributes["href"]
-	title =  XPath.first(doc, "*//title")
-	$alog.lwrite("Base URL "+ urlBase+ " Title "+title.text, "DEBG")
-
-	i=0
-	cmds = []																	#create an arry of commands
-	doc.elements.each( "//tbody/tr/td") { |e|
-		cmds[i] = e.text
-		if cmds[i] == nil then
-			cmds[i]  =""
-		end
-		i=i+1
-	}
-
-	elemNum= (i/3)
-	0.upto(elemNum-1) {|j|														# pass each command line
-		rcode= processElement( urlBase, cmds[j*3], cmds[j*3+1], cmds [(j*3)+2])
-		if rcode != OK then														# if OK proceed with processing
-			$alog.lwrite("Command table "+ optable+ " aborted on step "+cmds[j*3], "INFO")
-			return rcode
-		end
-	}
-
-	$alog.lwrite("Command table "+ optable+ " finished ", "INFO")
-	return OK
-
-end
 
 ################################################################################
 #
@@ -267,9 +106,7 @@ def execService(iServ, iTest)
 		$gcfd.scfd[iServ].fOpTable.each do |table|	 							# fixed for each group
 			rcode= processOpTable( $gcfd.servConfPath+ table)					# workout each instruction table
 			if(($gcfd.screenShotEnable== true)&&( rcode!=OK))
-				imgName= $gcfd.logPath+$gcfd.scfd[iServ].nagService+"_"+Time.now.to_i.to_s+".png"
-				$gcfd.takeScreenShot(imgName)									# take screenshot 
-				$alog.lwrite(("Image saved in "+imgName), "DEBG")
+				$brws.takeScreenShot( $gcfd.logPath)							# take screenshot
 			end
 		end
 	end
@@ -280,12 +117,12 @@ end
 #
 ################################################################################
 
-def calcServiceRes (iServ, iTest)
+def calcServiceRes(iServ, iTest)
 
 	locService= $gcfd.scfd[iServ].nagService									# do calculation on single service file
 	locWarnTO= $gcfd.scfd[iServ].warnTO
 	locCritTO= $gcfd.scfd[iServ].critTO
-	$pfd.perfClose(locService, $gcfd.logMode, locWarnTO, locCritTO)
+	$pfd.perfClose(locService, $brws.url.to_s)
 	$pfd.applResMsg= $pfd.CalcPerfData(iServ, locWarnTO, locCritTO)
 
 	if($gcfd.runMode==STANDALONE)
@@ -302,11 +139,13 @@ end
 #
 ################################################################################
 
-	$alog=LogRoutine::Log.new(OK, "DEBG")										# open log file
 	$gcfd= GlobConfData.new														# create browser interface
-	setUpGlobalConf()
+	parms= GetCommandLineParms()												# get command line info
+
+	$gcfd.startUp(parms[0], parms[1])											# GLOBAL SETUP
 	ret=OK
-	$gcfd.testRepeat.times do |iTest|											# for each test (when in standalone mode
+
+	$gcfd.testRepeat.times do |iTest|											# for each test(when in standalone mode
 		servStartTime= Time.now.to_i											# time stamp in seconds
 		$gcfd.nServ.times do |iServ|											# for each service
 
@@ -321,7 +160,7 @@ end
 				ret= $pfd.retState
 			end
 		end
-		if ($gcfd.runMode==STANDALONE)	
+		if($gcfd.runMode==STANDALONE)	
 			nowTime= Time.now.to_i
 			sleepTime= [(($gcfd.pollTime)- (nowTime-servStartTime)), 0].max
 			$alog.lwrite(("Sleeping for "+sleepTime.to_s+" s."), "DEBG")
@@ -329,7 +168,6 @@ end
 		end
 	end
 
-	closeGlobConf()
-	$alog.lclose
+	$gcfd.tearDown()
 	exit! ret
 

@@ -36,6 +36,11 @@ class Log
 		@currMode= LogMode[ mode]
 
 		begin
+			t= Time.now()														# create a daily file
+			if fname.match(/(.*?)\.log/)										# save extension
+				var= Regexp.last_match(1)
+				fname= var+ "_"+t.strftime("%Y-%m-%d")+".log"
+			end
 			@fh = File.new( fname, "a+")
 			lwrite("--------- Log file "+fname +" opened", "INFO")
 			@inmemory= false

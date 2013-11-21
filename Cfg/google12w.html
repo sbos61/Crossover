@@ -10,14 +10,15 @@
 <table cellpadding="1" cellspacing="1" border="1">
 <thead>
 <tr><td rowspan="1" colspan="3">Google search</td></tr>
-</thead><tbody>
+</thead>
+<tbody>
 <tr>
 	<td>open</td>
 	<td>/</td>
 	<td></td>
 </tr>
 <tr>
-	<td>assertTitle</td>
+	<td>waitForTitle</td>
 	<td>Google</td>
 	<td></td>
 </tr>
@@ -27,18 +28,8 @@
 	<td></td>
 </tr>
 <tr>
-	<td>waitForElementPresent</td>
-	<td>css=span.gbit</td>
-	<td></td>
-</tr>
-<tr>
 	<td>waitForTextPresent</td>
-	<td>I cookie ci aiutano a fornire i nostri servizi. </td>
-	<td></td>
-</tr>
-<tr>
-	<td>waitForElementPresent</td>
-	<td>link=Pubblicità</td>
+	<td>Immagini</td>
 	<td></td>
 </tr>
 <tr>
@@ -49,7 +40,12 @@
 <tr>
 	<td>type</td>
 	<td>id=gbqfq</td>
-	<td>sergio boso</td>
+	<td>sergio boso </td>
+</tr>
+<tr>
+	<td>waitForElementPresent</td>
+	<td>name=btnG</td>
+	<td></td>
 </tr>
 <tr>
 	<td>click</td>
@@ -58,12 +54,17 @@
 </tr>
 <tr>
 	<td>waitForElementPresent</td>
-	<td>link=Boso Consulting</td>
+	<td>link=Consulenze Infrastruttura Informatica Ing. Boso</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=Consulenze Infrastruttura Informatica Ing. Boso</td>
 	<td></td>
 </tr>
 <tr>
 	<td>waitForElementPresent</td>
-	<td>link=Consulenze Infrastruttura Informatica Ing. Boso</td>
+	<td>link=Boso Consulting</td>
 	<td></td>
 </tr>
 <tr>
@@ -77,13 +78,8 @@
 	<td></td>
 </tr>
 <tr>
-	<td>waitForTextPresent</td>
+	<td>verifyTextPresent</td>
 	<td>Home</td>
-	<td></td>
-</tr>
-<tr>
-	<td>clickAndWait</td>
-	<td>link=Consulenze Infrastruttura Informatica Ing. Boso</td>
 	<td></td>
 </tr>
 <tr>

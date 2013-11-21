@@ -1,6 +1,6 @@
 ################################################################################
 #
-#  Service transaction info (timeouts, names)
+#  Service transaction info( timeouts, names)
 #
 class ServTxData
 	def initialize
@@ -13,7 +13,7 @@ class ServTxData
 	attr_accessor :nTX
 #   attr_accessor :txName, :txCritTO, :txWarnTO
 
-	def GetCritTO (i)
+	def GetCritTO(i)
 		return @txCritTO[i]
 	end
 
@@ -21,19 +21,19 @@ class ServTxData
 		@txCritTO.push( s)
 	end
 
-	def GetWarnTO (i)
+	def GetWarnTO(i)
 		return @txWarnTO[i]
 	end
 
-	def txWarnTOAdd (s)
+	def txWarnTOAdd(s)
 		@txWarnTO.push( s)
 	end
 
-	def GetTxName (i)
+	def GetTxName(i)
 		return @txName[i]
 	end
 
-	def txNameAdd (s)
+	def txNameAdd(s)
 		@txName.push(s)
 	end
 
@@ -71,7 +71,7 @@ class ServConfData
 		@fOpTable
 	end
 
-	def opTableAdd (s)
+	def opTableAdd(s)
 		@fOpTable.push(s)														#
 	end
 
@@ -81,9 +81,25 @@ class ServConfData
 
 end
 
+def headlessMgr
+    begin
+        if($gcfd.hlmode== true)
+            $gcfd.headless = Headless.new(:dimensions => "1024x768x16")
+            $gcfd.headless.start
+        end
+    rescue
+        msg= "Cannot activate headless mode. "+ $!.to_s
+        $alog.lwrite(msg, "ERR_")
+        $alog.lclose
+        p msg                                                                   # return message to Nagios
+        exit!(UNKNOWN)
+    end
+end
+
+
 ################################################################################
 #
-#  Config File parsing (each service)
+#  Config File parsing( each service)
 #
 def setupServiceConf( fh, service)
 
@@ -108,7 +124,8 @@ def setupServiceConf( fh, service)
 										case value.downcase
 										when "seleniumide"	then locScfd.testType= SELENIUM
 										when "jmeter"		then locScfd.testType= JMETER
-										else 
+										when "cucumber"		then locScfd.testType= CUCUMBER
+										else
 											$alog.lwrite("Test type : "+var +" not supported ", "ERR_") 
 										end
 				when "WarnTO"			then locScfd.warnTO= value.to_f
@@ -210,10 +227,19 @@ class GlobConfData
 		@testDur=0
 		@testRepeat=0
 		@pageTimeOut=30						# default value
+		@pageTimer
 		
 		@nServ= 0
 		@scfd= Array.new
-		
+
+#   --------------------------------------- # mail send config
+		@mailEnable=false
+		@mailToAddress=""
+		@mailFromAddress="WebMonitor@bosoconsulting.it"
+		@mailSmpt=""
+		@mailPort=""
+		@mailUser=""
+		@mailPwd=""
 		return
 	end
 
@@ -225,26 +251,19 @@ class GlobConfData
 	attr_accessor :rwFile, :rwEnable, :newConn, :conn,:screenEnable, :screenShotEnable, :screenShotFname, :javaHome, :jmeterHome
 	attr_accessor :runMode, :pollTime, :testDur, :testRepeat, :pageTimeOut
 	attr_accessor :nServ
-	attr_reader :scfd
-	
+	attr_reader   :scfd
+	attr_reader   :mailEnable, :mailToAddress, :mailFromAddress, :mailSmpt, :mailPort, :mailUser, :mailPwd
+
 #### more complex methods
 
 	def duration
-		t = (Time.now- @start)
+		t =(Time.now- @start)
 		return t
 	end
 
 	def scfdAdd( s)
 		@scfd.push( s)
 	end
-
-	def takeScreenShot(imgName)													# take screenshot
-		begin
-			$browser.screenshot.save imgName
-		rescue
-			$alog.lwrite("Problems taking screenshots "+ imgName, "ERR_")   				# 
-		end
-	end 
 
 	def ParseGlobalConfData( fh)
 	begin
@@ -258,41 +277,51 @@ class GlobConfData
 
 # puts "var "+var+" value "+ value
 				case var
-				when "ServConfPath"	then $gcfd.servConfPath= value
-				when "LogMode"		then $gcfd.logMode= value
-				when "LogPath"		then $gcfd.logPath= value
-				when "JavaHome"		then $gcfd.javaHome= value
-				when "JmeterHome"	then $gcfd.jmeterHome= value
-				when "DateTemplate"	then $gcfd.dateTemplate= value
+				when "ServConfPath"	then @servConfPath= value
+				when "LogMode"		then @logMode= value
+				when "LogPath"		then @logPath= value
+				when "JavaHome"		then @javaHome= value
+				when "JmeterHome"	then @jmeterHome= value
+				when "DateTemplate"	then @dateTemplate= value
 
-				when "HTMLenable"	then $gcfd.htmlEnable= SetConfFlag( value, "HTML output : ")
-				when "HTMLoutFile"	then $gcfd.htmlOutFile= value				# simple path name. Put in log dir
+				when "HTMLenable"	then @htmlEnable= SetConfFlag( value, "HTML output : ")
+				when "HTMLoutFile"	then @htmlOutFile= value				# simple path name. Put in log dir
 
-				when "NSCAenable"	then $gcfd.nscaEnable= SetConfFlag( value, "NSCA Mode : ")
-				when "NSCAexeFile"	then $gcfd.nscaExeFile= value				# full path name
-				when "NSCAconfigFile" then $gcfd.nscaConfigFile= value			# full path name
-				when "NSCAserver"	then $gcfd.nscaServer= value				# name or value
-				when "NSCAport"		then $gcfd.nscaPort= value					# port number
+				when "NSCAenable"	then @nscaEnable= SetConfFlag( value, "NSCA Mode : ")
+				when "NSCAexeFile"	then @nscaExeFile= value				# full path name
+				when "NSCAconfigFile" then @nscaConfigFile= value			# full path name
+				when "NSCAserver"	then @nscaServer= value				# name or value
+				when "NSCAport"		then @nscaPort= value					# port number
 
-				when "ResFileEnable" then $gcfd.rwEnable= SetConfFlag( value, "RW file Mode : ")
-				when "ResFile"		then $gcfd.rwFile= value					# command file for NAGIOS file mode
-				when "screenEnable"	then $gcfd.screenEnable= SetConfFlag( value, "Screen output : ")
-				when "screenShotEnable"	then $gcfd.screenShotEnable= SetConfFlag( value, "Enable Screen Shots : ")
+				when "ResFileEnable" then @rwEnable= SetConfFlag( value, "RW file Mode : ")
+				when "ResFile"		then @rwFile= value					# command file for NAGIOS file mode
+				when "screenEnable"	then @screenEnable= SetConfFlag( value, "Screen output : ")
+				when "screenShotEnable"	then @screenShotEnable= SetConfFlag( value, "Enable Screen Shots : ")
 
-				when "Browser"		then $gcfd.brwsrType= value					#
-				when "Profile"		then $gcfd.brwsrProfile= value				#
+				when "Browser"		then @brwsrType= value					#
+				when "Profile"		then @brwsrProfile= value				#
 
 				when "runMode"		then
 										case value.downcase
-										when "plugin"	then $gcfd.runMode= PLUGIN	# run mode: standalone or passive
-										when "passive"	then $gcfd.runMode= PASSIVE	# run mode: standalone or passive
-										when "standalone" then $gcfd.runMode= STANDALONE	# run mode: standalone or passive
-										else 
+										when "plugin"	then @runMode= PLUGIN	# run mode: standalone or passive
+										when "passive"	then @runMode= PASSIVE	# run mode: standalone or passive
+										when "standalone" then @runMode= STANDALONE	# run mode: standalone or passive
+										when "cucumber" then @runMode= CUCUMBER	# run mode: standalone or passive
+										else
 											$alog.lwrite("RunMode : "+var +" not supported ", "WARN")   # 
 										end
-				when "pollTime"		then $gcfd.pollTime= value.to_i*60			# input in minutes, move to seconds 
-				when "testDuration"	then $gcfd.testDur= value.to_i*60
-				when "PageTO"		then $gcfd.pageTimeOut= value.to_f			# values in seconds
+				when "pollTime"		then @pollTime= value.to_i*60			# input in minutes, move to seconds 
+				when "testDuration"	then @testDur= value.to_i*60
+				when "PageTO"		then @pageTimeOut= value.to_f			# values in seconds
+
+				when "mailEnable"	then @mailEnable= SetConfFlag( value, "Mail sending : ")
+				when "mailToAddress" then @mailToAddress= value
+				when "mailFromAddress" then @mailFromAddress= value
+				when "mailSmpt" 	then @mailSmpt= value
+				when "mailPort" 	then @mailPort= value
+				when "mailUser" 	then @mailUser= value
+				when "mailPwd" 		then @mailPwd= value
+
 				else
 					$alog.lwrite("Unknow parm: "+var +" /value: " +value, "WARN")   # vedere se fare logging
 				end
@@ -301,31 +330,31 @@ class GlobConfData
 			end
 		end
 
-		if ($gcfd.rwEnable == true) && ($gcfd.rwFile== "")						# if command file, check for file name
+		if(@rwEnable == true) &&(@rwFile== "")									# if command file, check for file name
 			msg= "Command file not set"
 			$alog.lwrite(msg, "ERR_")
 			p msg
 			exit! UNKNOWN														# file name not set: fatal error
 		end
 
-		if ($gcfd.nscaEnable == true) && ($gcfd.nscaExeFile== "")				# if NSCA, check for command file name
+		if(@nscaEnable == true) &&(@nscaExeFile== "")							# if NSCA, check for command file name
 			msg= "NSCA command file not set"
 			$alog.lwrite(msg, "ERR_")
 			p msg
 			exit! UNKNOWN														# Cannot read file: fatal error
 		end
 
-		index = $gcfd.confGlobFile.rindex('.')									# take conf file
-		if (index) then
-			cnfname= $gcfd.confGlobFile[0 , index]								# strip off extension
+		index = @confGlobFile.rindex('.')										# take conf file
+		if(index) then
+			cnfname= @confGlobFile[0 , index]									# strip off extension
 		end
 
-		index = cnfname.rindex($gcfd.dirDelim)
-		if (index) then															# strip off path
+		index = cnfname.rindex(/[\\,\/]/)                                       # valid fro Wind & linux
+		if(index) then															# strip off path
 			cnfname= cnfname[index+1, 9999]
 		end
-#   $gcfd.fname= cnfname														# save name, no path, no ext
-		$gcfd.logFile= $gcfd.logPath+ cnfname+ '.log'							# calculate log file full name
+#   @fname= cnfname																# save name, no path, no ext
+		@logFile= @logPath+ cnfname+ '.log'										# calculate log file full name
 
 		ret= OK
 	rescue
@@ -339,12 +368,76 @@ class GlobConfData
 
 end
 
+################################################################################
+#
+#  start up and tear down
+#
+
+def startUp(file, mode)
+
+	$alog=LogRoutine::Log.new(OK, "DEBG")										# open log file
+	$gcfd.confGlobFile= file
+	$gcfd.hlmode= mode
+	ParseConfFile( $gcfd.confGlobFile)
+
+
+	$alog.lopen($gcfd.logFile, $gcfd.logMode)
+	$alog.lwrite("Config data read from "+$gcfd.confGlobFile, "INFO")
+
+	begin
+		if($gcfd.hlmode== true)
+			$gcfd.headless = Headless.new(:dimensions => "1024x768x16")
+			$gcfd.headless.start
+		end
+	rescue
+		msg= "Cannot activate headless mode. "+ $!.to_s
+		$alog.lwrite(msg, "ERR_")
+		$alog.lclose
+		p msg																	# return message to Nagios
+		exit!(UNKNOWN)
+	end
+
+	if !($gcfd.testMode)														# not in test mode
+		$gcfd.brwsrType= $gcfd.brwsrType[0..1].downcase							# normalize browser types
+		$brws= GenBrowser.new( $gcfd.brwsrType, $gcfd.brwsrProfile)
+		if $brws.status!=OK
+			if($gcfd.hlmode== true)
+				$gcfd.headless.destroy
+			end
+			$alog.lclose
+			p msg																# return message to Nagios
+			exit!(UNKNOWN)
+		end
+	end
+	$mail= SendMsg.new()
+
+end
+
+def tearDown()
+	$brws.close
+	if($gcfd.hlmode== true)
+		$gcfd.headless.destroy
+	end
+
+	msgLog ="Durata test: "+ sprintf("%.3f",$gcfd.duration)+ "s"
+	$alog.lwrite(msgLog, "INFO")
+	
+	begin
+		$mail.deliverMsg()
+	rescue
+		msg= "Cannot send mail with text: "+ $!.to_s
+		$alog.lwrite(msg, "ERR_")
+	end
+	$alog.lclose
+
+end 
+
 end
 ################################################################################
 #
 #  Aux configuration procedures
 #
-def SetConfFlag (input, msg)
+def SetConfFlag( input, msg)
 	case input.downcase
 	when "yes"	then retval= true													# 
 	when "no"	then retval= false
@@ -352,21 +445,6 @@ def SetConfFlag (input, msg)
 		$alog.lwrite("Flag "+msg+ input +" not supported ", "WARN")   # 
 	end
 	return retval
-end
-
-def headlessMgr
-    begin
-        if ($gcfd.hlmode== true)
-            $gcfd.headless = Headless.new(:dimensions => "1024x768x16")
-            $gcfd.headless.start
-        end
-    rescue
-        msg= "Cannot activate headless mode. "+ $!.to_s
-        $alog.lwrite(msg, "ERR_")
-        $alog.lclose
-        p msg                                                                   # return message to Nagios
-        exit!(UNKNOWN)
-    end
 end
 
 ################################################################################
@@ -398,7 +476,7 @@ def ParseConfFile( confFile)
 		return UNKNOWN															# Cannot read file: fatal error
 	end
 
-	if (($gcfd.runMode== nil)|| ($gcfd.runMode== PASSIVE))						# default is old stype passive mode
+	if(($gcfd.runMode== nil)||($gcfd.runMode== PASSIVE))						# default is old stype passive mode
 		$gcfd.runMode= PASSIVE
 		$gcfd.testRepeat=1
 		$gcfd.testDur=1
@@ -409,7 +487,7 @@ def ParseConfFile( confFile)
 		$gcfd.pollTime=1
 		$gcfd.nServ=1															# in plugin mode, only one service allowed
 		$gcfd.screenEnable=false
-	elsif(( $gcfd.pollTime==0)|| ($gcfd.testDur==0))
+	elsif(( $gcfd.pollTime==0)||($gcfd.testDur==0))
 		raise "RunMode configuration error: "+$gcfd.pollTime.to_s+" , "+$gcfd.testDur.to_s
 	else
 		$gcfd.runMode= STANDALONE
@@ -417,5 +495,6 @@ def ParseConfFile( confFile)
 		$gcfd.pollTime= $gcfd.pollTime											# move to seconds
 	end
 	headlessMgr()
+
 	return ret
 end

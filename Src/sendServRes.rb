@@ -3,6 +3,8 @@
 #
 #     use external send_nsca
 #
+require 'mail'
+
 def resText(e)
 	resT= ["PASS", "WARNING", "FAIL", "UNKNOWN"]  
 	return resT[e]
@@ -47,6 +49,50 @@ class SendNSCA
 				$alog.lwrite("Timeout error sending to NSCA server: "+ $!.to_s, "ERR_")
 				return(UNKNOWN)
 			end
+		end
+	end
+end
+
+################################################################################
+#
+#		Mail sending management
+#
+class SendMsg
+	def initialize()
+		options={
+			:address				=> $gcfd.mailSmpt,
+			:port					=> $gcfd.mailPort.to_i,
+			:domain					=> 'localhost',
+			:user_name				=> $gcfd.mailUser,
+			:password				=> $gcfd.mailPwd,
+			:authentication			=> 'plain',
+			:enable_starttls_auto	=> true 
+		}
+		Mail.defaults do
+		  delivery_method :smtp, options
+		end
+		@msgBody=''
+	end
+
+	def sendMsg( text)
+		if(text !='')
+			@msgBody= @msgBody+"\n"+ text
+		end
+	end
+
+	def deliverMsg
+
+		if($gcfd.mailEnable==true)
+			if(@msgBody=='')
+				@msgBody='No errors reported'
+			end
+			mail = Mail.new do
+					 to $gcfd.mailToAddress
+				   from $gcfd.mailFromAddress
+				subject 'Automatic Alerting Mail from Crossover'
+				   body @msgBody
+			end
+			mail.deliver
 		end
 	end
 end
@@ -107,22 +153,22 @@ END
 END
 
 		@resHtml= Array.new
-		@resHtml.push ('<td style="background-color: #00ff00; text-align: center;"><bc>PASS</bc></td>')
-		@resHtml.push ('<td style="background-color: #FFFF66; text-align: center;"><bc>WARN</bc></td>')
-		@resHtml.push ('<td style="background-color: red; text-align: center;"><bc>FAIL</bc></td>')
-		@resHtml.push ('<td style="background-color: blue; text-align: center;"><bc>UNKNW</bc></td>')
+		@resHtml.push('<td style="background-color: #00ff00; text-align: center;"><bc>PASS</bc></td>')
+		@resHtml.push('<td style="background-color: #FFFF66; text-align: center;"><bc>WARN</bc></td>')
+		@resHtml.push('<td style="background-color: red; text-align: center;"><bc>FAIL</bc></td>')
+		@resHtml.push('<td style="background-color: blue; text-align: center;"><bc>UNKNW</bc></td>')
 
 	end
 
 	def htmlSeek(fullName)
-		tail_part= []
-		fh = File.new( fullName, "a+t")											# open, pointer at the end
+# 		tail_part= []
+		fh = File.new( fullName, "r")											# open, pointer at the end
 		fh.seek(-200, IO::SEEK_END)												# position near EOF
 		tail=fh.read															# read to the end of file
-		tail_part= tail.split ("</tbody>")
+		tail_part= tail.split("</tbody>")
 		fh.close
 
-		offset= tail_part[0].length+  File.stat( fullName).size-200				# calc offset
+			offset= tail_part[0].length+  File.stat( fullName).size-200				# calc offset
 		File.truncate( fullName, offset-1)										# truncate the file
 		
 		fh = File.new( fullName, "a+")											# reopen for following processing, pointer at the end
@@ -191,7 +237,7 @@ end
 #     send result message return message
 # Any kind of output: NSCA or command file direct access supported
 #
-def sendServRes (nagserver, nagservice, iTest, msg,  state)
+def sendServRes(nagserver, nagservice, iTest, msg,  state)
 
 	if($gcfd.screenEnable==true)
 		resMsg=  resText($pfd.retState)
@@ -219,7 +265,7 @@ def sendServRes (nagserver, nagservice, iTest, msg,  state)
 	end
 	if($gcfd.rwEnable==true)
 		begin
-			ts= (Time.now.to_f ).to_i 											# read time stamp
+			ts=(Time.now.to_f ).to_i 											# read time stamp
 																				# write result
 			line= "["+ts.to_s+"] PROCESS_SERVICE_CHECK_RESULT;"+nagserver+";"+nagservice+";"+state.to_s+";"+msg
 			$alog.lwrite(line, "DEBG")                                          # fprintf(command_file_fp,"[%lu] PROCESS_SERVICE_CHECK_RESULT;%s;%s;%d;%s\n",(unsigned long)check_time,host_name,svc_description,return_code,plugin_output);
@@ -243,5 +289,10 @@ def sendServRes (nagserver, nagservice, iTest, msg,  state)
 		outFile.closeHtmlData(htmlh)
 		ret= state
 	end
+	if(($gcfd.mailEnable==true) &&(state !=OK))															# send mail only with alarms/errors etc
+		text= Time.now.strftime("%Y-%m-%d %H.%M.%S ")+" Service "+nagservice+" closed: run #"+iTest.to_s+" State "+resMsg
+		$mail.sendMsg( text)
+	end
+	return state
 end
 
