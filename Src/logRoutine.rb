@@ -34,6 +34,10 @@ class Log
 
 	def lopen(fname, mode)
 		@currMode= LogMode[ mode]
+		if (@currMode==nil)
+			puts 'Opening with rong mode!'
+			exit -1
+		end
 
 		begin
 			t= Time.now()														# create a daily file

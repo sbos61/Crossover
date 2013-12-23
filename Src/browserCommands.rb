@@ -11,31 +11,33 @@ require 'watir-webdriver'														#open a browser WD mode
 require 'watir-webdriver-performance'
 
 
-TIMETICK	=0.2
+TIMETICK		=0.2
 TIMETICKSHORT	=0.2
-
+StartTO			=20
 
 class GenBrowser < Watir::Browser
 
 	def initialize (type, profile )
 		@status= nil
 		@brws= nil
-		begin
-			if type =='ie'
-				@brws= Watir::Browser.new :ie
-				$alog.lwrite("Explorer opened ", "INFO")
-			elsif type =='ch'
-				@brws= Watir::Browser.new :chrome
-				$alog.lwrite("Chrome opened ", "INFO")
+
+		if(type== 'ie')
+			brtype= :ie
+		elsif(type== 'ch')
+			brtype= :chrome
+		else
+			brtype= :firefox
+		end
+
+
+		begin Timeout::timeout( StartTO) do
+			if profile ==''
+				@brws= Watir::Browser.new brtype
 			else
-				if profile ==''
-					@brws= Watir::Browser.new :firefox							# default is Firefox
-				else
-					@brws= Watir::Browser.new :firefox, :profile => profile		# Firefox with profile
-				end
-				$alog.lwrite("Firefox opened with profile /"+profile+"/", "INFO")
+				@brws= Watir::Browser.new brtype, :profile => profile		# Firefox with profile
 			end
-			@brws.driver.manage.timeouts.page_load = 60							# increase page timeout
+			$alog.lwrite( brtype.to_s+ " opened with profile /"+profile+"/", "INFO")
+			end
 			$gcfd.res= 'OK'
 			@status= OK
 		rescue
@@ -45,6 +47,9 @@ class GenBrowser < Watir::Browser
 		end
 		@pageTimer= 0
 		@pageTimeOut=$gcfd.pageTimeOut
+		if(type!= 'ch')
+			@brws.driver.manage.timeouts.page_load = @pageTimeOut							# increase page timeout
+		end
 		return @brws
 	end
 
@@ -276,9 +281,55 @@ class GenBrowser < Watir::Browser
 	end
 
 ################################################################################
+# This is unified test function
+	def checkFor(type, tvalue)
+
+		url= @brws.url.to_s
+		$alog.lwrite(("Checking element "+type.to_s+" with value /"+tvalue+"/"), "DEBG")
+		begin
+
+			found= false
+			case type
+				when :title
+					if(@brws.title.include? tvalue)			then found= true; end
+				when :text
+					if(@brws.text.include? tvalue)			then found= true; end
+				when :link
+					if(@brws.link(:text, tvalue).exists?)	then found= true; end
+				when :span, :css, :id, :element
+					if(@brws.element(type, tvalue).exists?)	then found= true; end
+				when :name
+					if(@brws.button(:name, tvalue).exists?)
+						found= true;
+					elsif(@brws.select_list(:name, tvalue).exists?)
+						found= true;
+					else
+						$pfd.applRes(true,"CANnot find :name with value "+tvalue, url)
+						return OK
+					end
+				else
+					$pfd.applRes(true,"CANnot find selector "+type.to_s+" with value "+tvalue, url)
+					return OK
+			end
+
+			if(found)
+				$pfd.applRes(true,"Check: "+type.to_s+" found:/"+tvalue+"/", url)
+				return OK
+			else
+				$pfd.applRes(true, type.to_s+" not found. Value: /"+tvalue+"/ "+$!.to_s, url)
+				return CRITICAL
+			end
+		rescue
+			$pfd.applRes(false, type.to_s+" not selectable. Value: /"+tvalue+"/ "+$!.to_s, url)
+			return CRITICAL
+		end
+		return CRITICAL																	#  mark error but proceed w/ processing
+	end
+
+################################################################################
 	def radioSet(tag, tvalue)
 		begin
-			@brws.radioset(tag, value).set
+			@brws.radioset(tag, tvalue).set
 			$alog.lwrite(("Radio button "+tag.to_s+" set with value="+tvalue+"."), "DEBG")
 			return OK
 		rescue
@@ -288,9 +339,9 @@ class GenBrowser < Watir::Browser
 	end
 
 ################################################################################
-	def takeScreenShot(path)													# take screenshot
+	def takeScreenShot()														# take screenshot
 		begin
-			imgName= path+"_"+Time.now.to_i.to_s+".png"
+			imgName= $gcfd.logPath+@bwrs.url.tr(' =%?*/\\:','_')+Time.now.to_i.to_s+'.png'
 			@brws.screenshot.save imgName
 			$alog.lwrite(("Image saved in "+imgName), "DEBG")
 		rescue
@@ -304,9 +355,42 @@ class GenBrowser < Watir::Browser
 	end
 
 ################################################################################
+	def savePage()
+		begin
+
+			fileName= $gcfd.logPath+@brws.url.tr(' =%?*/\\:','_')+Time.now.to_i.to_s+'.html'
+			File.open(fileName, "w") do |file|
+				file.write(@brws.html)
+			end
+			$alog.lwrite("HTML page  saved in "+ fileName, "DEBG")
+		rescue
+			$alog.lwrite("Problems saving page "+ fileName, "ERR_")   				#
+		end
+
+	end
+
+################################################################################
+	def enterSpecChar(tag, tvalue, spChSym)
+		begin
+			@brws.text_field(tag, tvalue).send_keys(spChSym)
+			$alog.lwrite('Sent char :' +spChSym.to_s+ ' to field '+tag.to_s+'/'+tvalue+'/', "DEBG")
+		rescue
+			$alog.lwrite('CANnot send char' +spChSym.to_s+ ' to field '+tag.to_s+'/'+tvalue+'/', "ERR_")   				#
+		end
+	end
+
+################################################################################
 	def close
 		@brws.close
 		$alog.lwrite("Browser closed!", "DEBG")
+	end
+
+	################################################################################
+	def WaitTTime(rangeTO)
+		sleepTime= rand(rangeTO[0]..rangeTO[1])
+		$alog.lwrite(("Sleeping for "+sleepTime.to_f.to_s+" s."), "DEBG")
+		sleep(sleepTime)
+
 	end
 
 end

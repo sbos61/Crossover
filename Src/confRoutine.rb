@@ -173,9 +173,9 @@ class GlobConfData
 		@confGlobFile= ""
 		@servConfPath= ""
 
-		@logFile= ""															# full-path file name
+		@logFile= ''															# full-path file name
 		@logMode= 'DEBG'
-		@logPath= ""
+		@logPath= ''
 
 		@dateTemplate= ""
 		@dirDelim= ""
@@ -404,12 +404,13 @@ def startUp(file, mode)
 			if($gcfd.hlmode== true)
 				$gcfd.headless.destroy
 			end
+			$brws.close
 			$alog.lclose
 			p msg																# return message to Nagios
 			exit!(UNKNOWN)
 		end
 	end
-	$mail= SendMsg.new()
+	$mail= SendMsg.new()														# init wMail result
 
 end
 

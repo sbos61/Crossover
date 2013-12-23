@@ -1,0 +1,11 @@
+source 'http://rubygems.org'
+
+gem 'headless'
+gem 'ffi'
+gem 'open4'
+gem 'os' 
+# gem 'timeout'
+gem 'mail'
+# gem 'net-smtp'
+gem 'watir-webdriver'
+gem 'watir-webdriver-performance'
