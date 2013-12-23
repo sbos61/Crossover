@@ -2,6 +2,9 @@
 *.rbc
 .bundle
 .config
+*.bak
+*.log
+*.jtl
 coverage
 InstalledFiles
 lib/bundler/man
